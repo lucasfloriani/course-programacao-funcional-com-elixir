@@ -128,6 +128,7 @@ Prompt interativo onde podemos escrever código Elixir e obter o resultado no me
 
 OBS: Para usa-lo é preciso digitar IEx no terminal.
 OBS2: Carrega os arquivos beam que estão na pasta onde foi executado iex.
+OBS3: É possivel utilizar a função **c/1** para compilar um arquivo com extensão **ex**
 
 ### Elixirc
 
@@ -375,3 +376,451 @@ Listas podem ser concatenadas com "++" ou subtraídas com "--"
 Listas no Elixir são **Listas Encadeadas** em sua essência, sendo assim os elementos não são indexados e não podemos acessar um elemento diretamente como em uma array/vetor
 
 Em relação a listas, a biblioteca nos fornece duas funções especificas para pegar dados da lista, os quais são o **(head) hd/1** e **(tail) tl/1**
+
+### Tuplas
+
+As tuplas são delimitadas por chaves e elas podem conter tipos diferentes
+
+```ruby
+{43, :type, "hello", 67.32, true}
+```
+
+As tuplas são armazenadas continuamente na memória, ficando assim os dados um ao lado do outro nos registros da memória, resultando em dados bem próximos para acessar.
+OBS: Mesmo esquema que os arrays e vetores de outras linguagens trabalham, ou seja, não é uma Lista encadeada
+
+Assim como arrays em outras linguagens, podemos acessar um elemento específico em uma tupla
+
+```ruby
+elem({43, :yes, "hello", 67.32, true}, 2)
+```
+
+## Imutabilidade
+
+A ideia por trás da imutabilidade é simplificar o trabalho de paralelismo
+
+```ruby
+list = [1, 2, 3, 4]
+List.delete_at(list, -1)
+# => 4
+list ++ [1]
+# => [1, 2, 3, 4, 1]
+IO.inspect list
+# => [1, 2, 3, 4]
+```
+
+Com base neste exemplo abaixo, o valor final em Elixir é **857** ou **365**?
+
+```ruby
+total = 857
+total = 365
+IO.puts total
+```
+
+Se você respondeu 857, **ERROU!**
+O Elixir trabalha com "binding" de variáveis, ou seja, a variável **aponta para uma referência de memória que contém o valor**, sendo assim quando "re-atribuímos" (rebinding) a variável, **ela aponta para uma nova referência de memória**
+
+O pulo do gato fica por conta de que o rebinding só ocorre quando o contexto for correto.
+Para entendermos melhor, veja o exemplo a seguir:
+
+```ruby
+total = 876
+
+defmodule Mutante do
+  def mutar(valor) do
+    valor = 1
+    IO.puts "interno- #{valor}" # Aqui será exibido 1 ou 876?
+    valor
+  end
+end
+
+Mutante.mutar(total)
+IO.puts "externo A- #{total}" # E aqui? 1 ou 876?
+
+total = Mutante.mutar(total)
+IO.puts "externo B- #{total}" # E agora, 1 ou 876?
+```
+
+Responsta do console
+
+```txt
+"interno- 1"
+"externo A- 876"
+
+"interno- 1"
+"externo B- 1"
+```
+
+Como pudemos perceber, o valor pode ser alterado dependendo do contexto. Sendo assim:
+
+"_Ser imutável não quer dizer que o valor nunca mudará, mas sim que ele está protegido de mudanças externas!_"
+
+## Criando Módulos e Funções
+
+O Elixir trabalha separando funções em módulos, inclusive já criamos nosso primeiro módulo e função aulas atrás
+
+```ruby
+defmodule Say do
+  def hello do
+    "Olá Mundo!!!"
+  end
+end
+```
+
+OBS: Nome do módulo em Pascal case e nome das funções em Snake case
+
+Podemos usar namespaces para facilitar e evitar confusões em nossas aplicações. Para isso, podemos usar um ponto (.) para separar os namespaces em nossos módulos, veja:
+
+```ruby
+defmodule MyModule.SaySomething do
+  def hello_world do
+    "Olá Mundo!!!"
+  end
+end
+```
+
+OBS: Usado para prevenir a criação de um módulo com o mesmo nome que um existente na própria linguagem
+
+## Funções Nomeadas vs Funções Anônimas
+
+Até agora usamos "funções nomeadas" que basicamente são funções que possuem um nome
+As funções anônimas são funções definidas sem um nome atrelado, mas que podem ser atribuídas (bind) a uma variável
+
+```ruby
+sum = fn (a, b) -> a + b end
+# Para executar ela é necessário usar o ponto
+sum.(2.3)
+```
+
+Para múltiplas instruções no corpo da função use ";" ou múltiplas linhas:
+
+```ruby
+printed_sum = fn (a, b) -> c = a + b;
+IO.puts(">>#{c}<<") end
+
+printed_sum = fn (a, b) ->
+  c = a + b
+  IO.puts(">>#{c}<<")
+end
+```
+
+Podemos também remover os parênteses
+
+```ruby
+hello = fn name -> "Hello, #{name}!" end
+hello.("Ana")
+```
+
+Podemos também criar funções anônimas sem parâmetros
+
+```ruby
+one_plus_one = fn -> 1 + 1 end
+one_plus_one.()
+```
+
+## Capture Operator
+
+O operador de captura (capture operator) "&" pode ser usado para basicamente duas coisas:
+
+1 - Criar funções anônimas:
+
+```ruby
+sum = fn (a,b) -> a + b end
+
+# Criando função anônima com Capture Operator
+sm = &(&1 + &2)
+# ou
+sm = & &1 + &2
+```
+
+2 - Permitir que funções nomeadas possam ser usadas como função anônima:
+
+```ruby
+# Não possibilitar fazer desta maneira, uma das formas é utilizar Capture Operator
+# upcase = String.upcase
+
+upcase = fn string -> String.upcase(string) end
+upcase.("hello, world!")
+
+# Parecido com C, quando você usa "&" para pegar o endereço da memória
+# Fazendo assim com que o upcase aponte para este endereço da memória (binding)
+upcase = &String.upcase/1
+upcase.("hello, world!")
+```
+
+## Pipe Operator
+
+Para entender o Pipe Operator, vamos desconstruir esse exemplo
+
+```ruby
+IO.puts(String.length("Olá"))
+```
+
+A primeira coisa que podemos fazer para melhorar a legibilidade e entendimento é separá-la em dois passos:
+
+```ruby
+str_len = String.length("Olá")
+IO.puts(str_len)
+```
+
+Um próximo refatoramento que podemos fazer é entender e usar o pipe operator **"|>"**
+
+```ruby
+String.length("Olá") |> IO.puts
+```
+
+"_O pipe operator permite que o resultado da expressão anterior seja o valor para o primeiro parâmetro da expressão seguinte._"
+
+Sendo assim, podemos desconstruir ainda mais:
+
+```ruby
+"Olá!" |> String.length |> IO.puts
+```
+
+Por fim, podemos organizar de uma forma mais legível:
+
+```ruby
+"Olá!"
+|> String.length
+|> IO.puts
+```
+
+## First-Class Function
+
+First-Class Functions ou First-Class Citizens, essa segunda "traduzida" ficaria algo como "Cidadãos de Primeira Classe"
+A ideia por trás desse conceito é que em uma linguagem funcional uma função deve ser como qualquer outro valor, ou seja, no Elixir funções são valores do tipo **function**
+
+Vejamos esse exemplo:
+
+```ruby
+taxa_basica = fn (preco) -> 5 end
+taxa_promocional = fn (preco) -> preco * 0.12 end
+preco_total = fn (preco, f_taxa) -> preco + f_taxa.(preco) end
+
+preco_total.(1000, taxa_basica)
+preco_total.(1000, taxa_promocional)
+```
+
+## First-Class Functions vs Higher-Order Functions
+
+Uma higher-order function é uma função que **pode receber uma função** como argumento **ou retornar uma função**
+
+As higher-order functions são um contraste com as **order-functions** que são funções que não podem receber funções como argumento ou retornar funções.
+
+Veja esse exemplo de uma função retornando uma função:
+
+```ruby
+defmodule Salario do
+  def calculo_do_bonus(porcentagem) do
+    fn(salario) -> salario * porcentagem end
+  end
+end
+
+# bonus_para_gerente = Salario.calculo_do_bonus(1.05)
+# bonus_para_gerente.(1000)
+# => 1050.0
+```
+
+Em resumo, quando você diz que uma linguagem suporta first-class functions, quer dizer que a linguagem trata as funções como valores e que você pode atribuir, por exemplo, elas a uma variável.
+Por outro lado, as higher-order functions são funções que trabalham com outras funções, podendo também recebê-las ou retorná-las.
+
+## Pattern matching
+
+A primeira coisa que precisamos aprender sobre Pattern Matching é que o "=" não é um operador de atribuição no Elixir
+
+```ruby
+n1 = 1
+# 1
+1 = n1
+# 1
+2 = n1
+# ** (MatchError) no match of right hand side value: 1
+```
+
+OBS: "=" é um matching operator
+OBS2: Ele faz a verificação se no lado esquerdo tem uma variável, verificando assim se pode ser apontado o valor na direita a ele.
+OBS3: Faz a comparação entre os endereços de memória caso o valor da esquerda não for uma variável.
+
+O Match Operator só "atribui variáveis do lado esquerdo do operador match
+
+Agora que ja entendemos o Match Operator, vamos brincar com o Pattern Matching, que tem o mesmo princípio mas pode ser aplicado a estruturas mais complexas
+
+```ruby
+{a, b, c} = {:jackson, "pires", 123}
+# {:jackson, "pires", 123}
+
+a
+# :jackson
+
+b
+# "pires"
+
+c
+# 123
+```
+
+Perceba que no exemplo anterior, do lado esquerdo temos uma tupla constituída apenas de variáveis, e do lado direito uma tupla com alguns valores
+O Elixir verifica se as estruturas podem ser correspondidas e em caso positivo faz as atribuições
+Caso as estruturas não sejam equivalentes, um erro ocorrerá
+
+```ruby
+{a, b, c} = {:jackson, "pires"}
+# ** (MatchError) no match of right hand side value: {:jackson, "pires"}
+
+{a, b, c} = [:jackson, "pires", 123]
+# ** (MatchError) no match of right hand side value: [:jackson, "pires", 123]
+```
+
+Outra coisa interessante que podemos usar com Pattern Matching é a estrutura de cabeça e causa para listas.
+
+```ruby
+[cabeca | cauda] = [1, 2, 3]
+# [1, 2, 3]
+
+cabeca
+# 1
+
+cauda
+# [2, 3]
+```
+
+OBS: Pode ser chamada ao pé da letra de Correspondência de Padrões
+
+### Underscore e Pin
+
+Ainda sobre Pattern Matching, imagine que temos a seguinte situação
+
+```ruby
+{x, y} = {32, 25}
+```
+
+Até aí tudo bem, mas e se não quisermos o valor do y? Neste caso seremos obrigados a informar uma variável?
+
+A resposta para isto é o **underscore** "_"
+
+```ruby
+{x, _} = {32, 35}
+```
+
+Sempre usaremos o underscore "_" quando não nos importamos com o valor.
+Assim apenas o **x** vai apontar para o 32 enquanto o outro valor pra gente não importa
+Em resumo o underscore age como uma variável que descarta o valor logo depois de "atribuída"
+
+Agora vamos falar sobre o pin operator. Veja o exemplo:
+
+```ruby
+x = 21
+# 21
+x = 43
+# 43
+```
+
+Notadamento o x começou apontando para 21 e em seguida foi reassociado (rebind) para o 43.
+Mas, e se a gente não quisesse permitir essa reassociação?
+
+É ai que entra o pin operator "^".
+O uso do pin operator é justamente para impedir a reassociação de variáveis.
+
+```ruby
+x = 34
+# 34
+^x = 45
+# ** (MatchError) no match of right hand side value: 45
+```
+
+Perceba que colocando o "^" antes da variável o Elixir levantou um erro informando que o 45 não "casa" com o valor atual do **x**, ou seja, o pin operator evitou o rebind.
+
+O legal do pin operator é que podemos usá-lo em conjunto com o pattern matching, fazendo com que seja evitado novos rebinds que não desejamos. Veja:
+
+```ruby
+{x, y} = {76, 89}
+# {76, 89}
+
+x
+# 76
+
+y
+# 89
+
+{x, ^y} = {12, 67}
+# ** (MatchError) no match of right hand side value: {12, 67}
+```
+
+OBS: Não faz rebind se o valor for o mesmo
+
+### Fazendo matching de parte de uma string
+
+```ruby
+"Content-Type: " <> content_type = "Content-Type: text/html; charset=UTF-8"
+# content_type = "text/html; charset=UTF-8"
+# Variável tem que ficar no lado direito do <>
+```
+
+## Keyword Lists e Maps
+
+### Keyword Lists
+
+Para entender as Keyword Lists, vamos imaginar uma tupla (que é indexável) armazenado em uma lista em cada posição.
+
+```ruby
+{"hello", :world, 123} # tupla
+["Elixir", :phoenix, true, 456] #lista
+[{:a. 22}, {:b, 77}]
+```
+
+Uma keyword list sempre possuirá uma tupla em cada posição e essa tupla obrigatoriamente conterá uma chave e um valor, ou seja, um átomo e um valor; Sendo assim, podemos reescrever uma keyword list desta maneira
+
+```ruby
+[{:a, 22}, {:b, 77}] == [a:22, b:77]
+```
+
+Apesar das keyword lists também serem listas encadeadas em sua essência, é possível acessar qualquer elemento indicando sua chave, veja:
+
+```ruby
+minha_kwl = [a: 22, b: 77]
+# [a: 22, b: 77]
+minha_kwl[:a]
+# 22
+```
+
+É interessante perceber que por não ser indexada a keyword list permite valores repetidos, mas nesses casos ele vai retornar apenas o primeiro valor e da chave encontrada, por isso, a ordem importa!
+
+```ruby
+x = [a: 22, b: 77, a: 99]
+x[:a]
+# 22
+```
+
+Em resumo:
+
+* **Keyword Lists devem possuir átomos como chave**
+* **Nas Keyword Lists a ordem das chaves importa**
+* **Nas Keyword Lists podem existir chaves iguais**
+
+### Maps
+
+Os Maps são muito parecidas com as KeyWords Lists pois também são formados por pares de chave-valor.
+
+A primeira diferença fica por conta que os Maps **são indexados** (ou seja, não é baseado em lista encadeada), a segunda é que **não são permitidas chaves iguais**, justamente por ela ser indexada, e a terceira é que **a chave pode ser determinada por qualquer tipo de dado**, não necessariamente um átomo.
+
+```txt
+m = %{:a => 1, 2 => :b}
+n = %{"z" => 5, 8 => true}
+
+m[2]
+# :b
+
+n["z"]
+# 5
+```
+
+Outra característica interessante é que também é possível acessar as chaves do **tipo átomo** através da sintaxe do ponto.
+
+```txt
+m = %{:a => 1, :b => "xyz"}
+
+m.a
+# 1
+
+m.b
+"xyz"
+```
